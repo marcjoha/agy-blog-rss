@@ -1,30 +1,33 @@
-# Google Antigravity Blog RSS Generator
+# Google Antigravity Blog RSS Feed
 
-A lightweight, serverless RSS 2.0 feed generator for the [Google Antigravity Blog](https://antigravity.google/blog).
+An unofficial, auto-updating RSS 2.0 feed for the [Google Antigravity Blog](https://antigravity.google/blog).
 
-## Public Feed URL
-- **Static GCS CDN URL**: `https://storage.googleapis.com/antigravity-blog-feed-airy-rock-454920-i5/rss.xml`
-- **Cloud Run Direct URL**: `https://agy-blog-rss-grnezkrt2q-ma.a.run.app/rss.xml` (or `/feed.xml`)
+## RSS Feed URL
 
-## Features
-- **Deterministic DOM Extraction**: Cheerio-based extraction of titles, slugs, publish dates, hero media, authors, and full article HTML bodies.
-- **Standards Compliant**: Valid RSS 2.0 XML with enclosures and full post content.
-- **GCP Serverless**: Cloud Run (`europe-north2`) triggered every 4 hours (`15 */4 * * *`) via Cloud Scheduler (`europe-west1`), publishing directly to a public Google Cloud Storage bucket.
+If you're just here to subscribe in your feed reader (Feedly, NetNewsWire, Reeder, Inoreader, etc.), copy this URL:
 
-## Usage
+```
+https://storage.googleapis.com/antigravity-blog-feed-airy-rock-454920-i5/rss.xml
+```
+
+The feed includes full article HTML, hero media, publication dates, and tags, updated every 4 hours.
+
+---
+
+## How It Works
+
+- **Scraper**: A lightweight Node.js worker extracts articles directly from the blog DOM.
+- **Hosting**: Served as a static XML file from Google Cloud Storage with CDN caching.
+- **Automation**: Triggered on schedule via Google Cloud Scheduler and Google Cloud Run.
+
+## Development
 
 ### Local Scrape
 ```bash
 npm install
 npm run scrape
 ```
-Outputs to `./dist/rss.xml`.
-
-### Local Server
-```bash
-npm start
-```
-Available on `http://localhost:8080/rss.xml`.
+Outputs the generated XML to `./dist/rss.xml`.
 
 ### Run Tests
 ```bash
