@@ -7,7 +7,7 @@ SCHEDULER_REGION="${GCP_SCHEDULER_REGION:-europe-west1}"
 SERVICE_NAME="agy-blog-rss"
 JOB_NAME="agy-blog-rss-scheduler"
 PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
-BUCKET_NAME="${GCS_BUCKET_NAME:-antigravity-blog-feed-${PROJECT_ID}}"
+BUCKET_NAME="${GCS_BUCKET_NAME:-antigravity-blog-feed}"
 SCHEDULE="15 */4 * * *"
 
 echo "=== Deploying Antigravity Blog RSS Generator to GCP ==="

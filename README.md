@@ -7,7 +7,7 @@ An unofficial, auto-updating RSS 2.0 feed for the [Google Antigravity Blog](http
 If you're just here to subscribe in your feed reader (Feedly, NetNewsWire, Reeder, Inoreader, etc.), copy this URL:
 
 ```
-https://storage.googleapis.com/antigravity-blog-feed-airy-rock-454920-i5/rss.xml
+https://storage.googleapis.com/antigravity-blog-feed/rss.xml
 ```
 
 The feed includes full article HTML, hero media, publication dates, and tags, updated every 4 hours.
