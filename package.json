@@ -1,7 +1,7 @@
 {
   "name": "agy-blog-rss",
   "version": "1.0.0",
-  "description": "RSS and Atom feed generator for Google Antigravity blog",
+  "description": "RSS feed generator for Google Antigravity blog",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

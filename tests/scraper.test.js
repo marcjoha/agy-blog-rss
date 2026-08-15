@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseDate, toAbsoluteUrl, parseBlogIndex, parsePostContent } from '../src/scraper.js';
-import { buildFeeds } from '../src/feed-builder.js';
+import { buildFeed } from '../src/feed-builder.js';
 
 test('parseDate handles valid and invalid date formats', () => {
   const d1 = parseDate('13 Aug 2026');
   assert.equal(d1.getUTCFullYear(), 2026);
-  assert.equal(d1.getUTCMonth(), 7); // August is 7 (0-indexed)
+  assert.equal(d1.getUTCMonth(), 7);
   assert.equal(d1.getUTCDate(), 13);
 
   const d2 = parseDate('2026-05-19');
@@ -94,7 +94,7 @@ test('parsePostContent extracts body, author, and description with absolute URLs
     </html>
   `;
 
-  const details = parsePostContent(samplePostHtml, 'https://antigravity.google/blog/custom-agents');
+  const details = parsePostContent(samplePostHtml);
   assert.equal(details.title, 'Custom Agents Deep Dive');
   assert.equal(details.summary, 'A comprehensive look into custom agents.');
   assert.equal(details.author, 'Antigravity Team');
@@ -103,7 +103,7 @@ test('parsePostContent extracts body, author, and description with absolute URLs
   assert.ok(details.contentHtml.includes('https://antigravity.google/assets/image/diagram.png'));
 });
 
-test('buildFeeds generates valid RSS 2.0 XML', () => {
+test('buildFeed generates valid RSS 2.0 XML', () => {
   const mockPosts = [
     {
       title: 'Test Post 1',
@@ -114,16 +114,15 @@ test('buildFeeds generates valid RSS 2.0 XML', () => {
       author: 'Google Antigravity Team',
       date: new Date('2026-08-13T12:00:00Z'),
       category: 'Model',
-      image: 'https://antigravity.google/assets/image/test.png'
-    }
+      image: 'https://antigravity.google/assets/image/test.png',
+    },
   ];
 
-  const feeds = buildFeeds(mockPosts, { feedBaseUrl: 'https://storage.googleapis.com/test-bucket' });
+  const rss = buildFeed(mockPosts, { feedBaseUrl: 'https://storage.googleapis.com/test-bucket' });
 
-  // RSS 2.0 validation
-  assert.ok(feeds.rss.includes('<rss version="2.0"'));
-  assert.ok(feeds.rss.includes('<title>Google Antigravity Blog</title>'));
-  assert.ok(feeds.rss.includes('<title><![CDATA[Test Post 1]]></title>'));
-  assert.ok(feeds.rss.includes('https://antigravity.google/blog/test-post-1'));
-  assert.ok(feeds.rss.includes('<description><![CDATA[Summary of test post 1]]></description>'));
+  assert.ok(rss.includes('<rss version="2.0"'));
+  assert.ok(rss.includes('<title>Google Antigravity Blog</title>'));
+  assert.ok(rss.includes('<title><![CDATA[Test Post 1]]></title>'));
+  assert.ok(rss.includes('https://antigravity.google/blog/test-post-1'));
+  assert.ok(rss.includes('<description><![CDATA[Summary of test post 1]]></description>'));
 });

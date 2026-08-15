@@ -1,44 +1,32 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
+import { config } from './config.js';
 import { fetchBlogPosts } from './scraper.js';
-import { buildFeeds } from './feed-builder.js';
-import { uploadFeedsToGCS } from './gcs-uploader.js';
+import { buildFeed } from './feed-builder.js';
+import { uploadFeed } from './gcs-uploader.js';
 
 async function main() {
   console.log('Fetching Google Antigravity blog posts...');
   const startTime = Date.now();
 
-  const posts = await fetchBlogPosts({
-    fetchFullContent: true,
-    maxPosts: 50
-  });
+  const posts = await fetchBlogPosts({ fetchFullContent: true, maxPosts: 50 });
+  console.log(`Scraped ${posts.length} posts in ${Date.now() - startTime}ms.`);
 
-  console.log(`Successfully scraped ${posts.length} blog posts in ${Date.now() - startTime}ms.`);
+  const rss = buildFeed(posts, { feedBaseUrl: config.feedBaseUrl });
 
-  const feeds = buildFeeds(posts, {
-    feedBaseUrl: process.env.FEED_BASE_URL || (process.env.GCS_BUCKET_NAME ? `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}` : 'https://antigravity.google/blog')
-  });
-
-  // Write locally to ./dist
   const distDir = resolve(process.cwd(), 'dist');
   await mkdir(distDir, { recursive: true });
+  await writeFile(join(distDir, 'rss.xml'), rss, 'utf-8');
+  console.log(`Written ${join(distDir, 'rss.xml')} (${rss.length} bytes)`);
 
-  await writeFile(join(distDir, 'rss.xml'), feeds.rss, 'utf-8');
-
-  console.log(`Feed generated in ${distDir}:`);
-  console.log(`- ${join(distDir, 'rss.xml')} (${feeds.rss.length} bytes)`);
-
-  // Optional upload to GCS if GCS_BUCKET_NAME is set
-  if (process.env.GCS_BUCKET_NAME) {
-    console.log(`Uploading feed to GCS bucket: ${process.env.GCS_BUCKET_NAME}...`);
-    const results = await uploadFeedsToGCS(feeds, process.env.GCS_BUCKET_NAME, {
-      makePublic: process.env.GCS_MAKE_PUBLIC === 'true'
-    });
-    console.log('GCS Upload results:', results);
+  if (config.gcsBucketName) {
+    console.log(`Uploading to gs://${config.gcsBucketName}...`);
+    const result = await uploadFeed(rss, config.gcsBucketName);
+    console.log(`Uploaded: ${result.publicUrl}`);
   }
 }
 
 main().catch((err) => {
-  console.error('Fatal error during scrape:', err);
+  console.error('Fatal:', err);
   process.exit(1);
 });

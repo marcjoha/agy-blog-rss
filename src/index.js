@@ -1,92 +1,96 @@
 import http from 'node:http';
+import { config } from './config.js';
 import { fetchBlogPosts } from './scraper.js';
-import { buildFeeds } from './feed-builder.js';
-import { uploadFeedsToGCS } from './gcs-uploader.js';
+import { buildFeed } from './feed-builder.js';
+import { uploadFeed } from './gcs-uploader.js';
 
-const PORT = process.env.PORT || 8080;
-const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME;
-const FEED_BASE_URL = process.env.FEED_BASE_URL || (GCS_BUCKET_NAME ? `https://storage.googleapis.com/${GCS_BUCKET_NAME}` : 'https://antigravity.google/blog');
-
-let cachedFeeds = null;
+let cachedRss = null;
+let cachedPostCount = 0;
 let lastScrapedAt = 0;
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes in-memory cache
+const CACHE_TTL_MS = 15 * 60 * 1000;
 
 /**
- * Runs the scrape and feed generation pipeline.
+ * Runs the scrape → build → upload pipeline.
  * @param {{force?: boolean}} options
- * @returns {Promise<{feeds: {rss: string}, postCount: number, gcsUploads?: Array<object>}>}
  */
-export async function runPipeline(options = {}) {
+async function runPipeline(options = {}) {
   const now = Date.now();
-  if (!options.force && cachedFeeds && (now - lastScrapedAt < CACHE_TTL_MS)) {
-    return { feeds: cachedFeeds, postCount: cachedFeeds.postCount, fromCache: true };
+  if (!options.force && cachedRss && (now - lastScrapedAt < CACHE_TTL_MS)) {
+    return { rss: cachedRss, postCount: cachedPostCount, fromCache: true };
   }
 
   const posts = await fetchBlogPosts({ fetchFullContent: true, maxPosts: 50 });
-  const feeds = buildFeeds(posts, { feedBaseUrl: FEED_BASE_URL });
+  const rss = buildFeed(posts, { feedBaseUrl: config.feedBaseUrl });
 
-  cachedFeeds = { ...feeds, postCount: posts.length };
+  cachedRss = rss;
+  cachedPostCount = posts.length;
   lastScrapedAt = now;
 
-  let gcsUploads = null;
-  if (GCS_BUCKET_NAME) {
-    gcsUploads = await uploadFeedsToGCS(feeds, GCS_BUCKET_NAME, {
-      makePublic: process.env.GCS_MAKE_PUBLIC === 'true'
-    });
+  let gcsUpload = null;
+  if (config.gcsBucketName) {
+    gcsUpload = await uploadFeed(rss, config.gcsBucketName);
   }
 
-  return {
-    feeds,
-    postCount: posts.length,
-    gcsUploads,
-    fromCache: false
-  };
+  return { rss, postCount: posts.length, gcsUpload, fromCache: false };
+}
+
+function json(res, statusCode, body) {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname;
+  const { pathname } = new URL(req.url, `http://${req.headers.host}`);
 
   try {
-    if (pathname === '/healthz' || pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    if (pathname === '/healthz') {
+      return json(res, 200, { status: 'ok' });
     }
 
-    if (pathname === '/scrape' && (req.method === 'POST' || req.method === 'GET')) {
+    if (pathname === '/scrape' && req.method === 'POST') {
       const result = await runPipeline({ force: true });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
+      return json(res, 200, {
         success: true,
         postCount: result.postCount,
-        gcsUploads: result.gcsUploads,
-        timestamp: new Date().toISOString()
-      }));
+        gcsUpload: result.gcsUpload,
+      });
     }
 
     if (pathname === '/rss.xml' || pathname === '/feed.xml') {
       const result = await runPipeline();
       res.writeHead(200, {
         'Content-Type': 'application/rss+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=14400, s-maxage=14400'
+        'Cache-Control': 'public, max-age=14400, s-maxage=14400',
       });
-      return res.end(result.feeds.rss);
+      return res.end(result.rss);
     }
 
     if (pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('Google Antigravity Blog RSS Generator\n\nEndpoints:\n- /rss.xml or /feed.xml (RSS 2.0)\n- /scrape (Trigger scrape & GCS upload)\n- /healthz (Health Check)\n');
+      return res.end([
+        'Google Antigravity Blog RSS Generator',
+        '',
+        'Endpoints:',
+        '  GET  /rss.xml   RSS 2.0 feed',
+        '  POST /scrape    Trigger scrape & GCS upload',
+        '  GET  /healthz   Health check',
+        '',
+      ].join('\n'));
     }
 
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not Found');
   } catch (err) {
-    console.error('Request error:', err);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: err.message }));
+    console.error(JSON.stringify({ severity: 'ERROR', message: err.message, stack: err.stack }));
+    json(res, 500, { error: err.message });
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Antigravity RSS generator server listening on port ${PORT}`);
+server.listen(config.port, () => {
+  console.log(JSON.stringify({ severity: 'INFO', message: `Listening on port ${config.port}` }));
+});
+
+process.on('SIGTERM', () => {
+  console.log(JSON.stringify({ severity: 'INFO', message: 'SIGTERM received, shutting down' }));
+  server.close(() => process.exit(0));
 });

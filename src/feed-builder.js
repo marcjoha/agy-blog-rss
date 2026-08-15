@@ -1,12 +1,12 @@
 import { Feed } from 'feed';
 
 /**
- * Builds RSS 2.0 feed from a list of scraped posts.
+ * Builds an RSS 2.0 feed XML string from a list of scraped posts.
  * @param {Array<object>} posts
  * @param {{feedBaseUrl?: string}} options
- * @returns {{rss: string}}
+ * @returns {string} RSS 2.0 XML
  */
-export function buildFeeds(posts, options = {}) {
+export function buildFeed(posts, options = {}) {
   const feedBaseUrl = options.feedBaseUrl || 'https://antigravity.google/blog';
   const latestDate = posts.length > 0 && posts[0].date ? posts[0].date : new Date();
 
@@ -20,14 +20,14 @@ export function buildFeeds(posts, options = {}) {
     favicon: 'https://antigravity.google/favicon.ico',
     copyright: `All rights reserved ${new Date().getFullYear()}, Google LLC`,
     updated: latestDate,
-    generator: 'Google Antigravity RSS Feed Generator',
+    generator: 'agy-blog-rss',
     feedLinks: {
-      rss2: `${feedBaseUrl}/rss.xml`
+      rss2: `${feedBaseUrl}/rss.xml`,
     },
     author: {
       name: 'Google Antigravity Team',
-      link: 'https://antigravity.google'
-    }
+      link: 'https://antigravity.google',
+    },
   });
 
   for (const post of posts) {
@@ -37,19 +37,12 @@ export function buildFeeds(posts, options = {}) {
       link: post.url,
       description: post.summary || post.title,
       content: post.contentHtml || `<p>${post.summary || post.title}</p>`,
-      author: [
-        {
-          name: post.author || 'Google Antigravity Team',
-          link: 'https://antigravity.google'
-        }
-      ],
+      author: [{ name: post.author || 'Google Antigravity Team', link: 'https://antigravity.google' }],
       date: post.date instanceof Date && !isNaN(post.date.getTime()) ? post.date : new Date(),
       image: post.image || undefined,
-      category: post.category ? [{ name: post.category }] : []
+      category: post.category ? [{ name: post.category }] : [],
     });
   }
 
-  return {
-    rss: feed.rss2()
-  };
+  return feed.rss2();
 }
