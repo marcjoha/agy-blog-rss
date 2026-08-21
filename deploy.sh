@@ -8,7 +8,7 @@ SERVICE_NAME="agy-blog-rss"
 JOB_NAME="agy-blog-rss-scheduler"
 PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
 BUCKET_NAME="${GCS_BUCKET_NAME:-antigravity-blog-feed}"
-SCHEDULE="15 */4 * * *"
+SCHEDULE="15 */2 * * *"
 
 echo "=== Deploying Antigravity Blog RSS Generator to GCP ==="
 echo "Project:   ${PROJECT_ID}"

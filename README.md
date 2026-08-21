@@ -10,7 +10,7 @@ If you're just here to subscribe in your feed reader (Feedly, NetNewsWire, Reede
 https://storage.googleapis.com/antigravity-blog-feed/rss.xml
 ```
 
-The feed includes full article HTML, hero media, publication dates, and tags, updated every 4 hours.
+The feed includes full article HTML, hero media, publication dates, and tags, updated every 2 hours.
 
 ---
 

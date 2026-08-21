@@ -17,7 +17,7 @@ export async function uploadFeed(rssXml, bucketName) {
   await file.save(rssXml, {
     metadata: {
       contentType: 'application/rss+xml; charset=utf-8',
-      cacheControl: 'public, max-age=14400, s-maxage=14400',
+      cacheControl: 'public, max-age=7200, s-maxage=7200',
     },
     resumable: false,
   });

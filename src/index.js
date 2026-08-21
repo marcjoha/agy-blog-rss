@@ -60,7 +60,7 @@ const server = http.createServer(async (req, res) => {
       const result = await runPipeline();
       res.writeHead(200, {
         'Content-Type': 'application/rss+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=14400, s-maxage=14400',
+        'Cache-Control': 'public, max-age=7200, s-maxage=7200',
       });
       return res.end(result.rss);
     }
