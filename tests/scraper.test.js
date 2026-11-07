@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDate, toAbsoluteUrl, parseBlogIndex, parsePostContent } from '../src/scraper.js';
-import { buildFeed } from '../src/feed-builder.js';
+import { parseDate, toAbsoluteUrl, parseBlogIndex, parsePostContent, cleanTitle } from '../src/scraper.js';
+import { buildFeed, createFeedInstance } from '../src/feed-builder.js';
+
+test('cleanTitle strips prefix and suffix accurately', () => {
+  assert.equal(cleanTitle('Antigravity Anywhere with Remote Control | Google Antigravity Blog'), 'Antigravity Anywhere with Remote Control');
+  assert.equal(cleanTitle('Google Antigravity Blog: Custom Agents Deep Dive'), 'Custom Agents Deep Dive');
+  assert.equal(cleanTitle('Gemini 3.7 Flash in Google Antigravity'), 'Gemini 3.7 Flash in Google Antigravity');
+  assert.equal(cleanTitle(''), '');
+  assert.equal(cleanTitle(null), '');
+});
 
 test('parseDate handles valid and invalid date formats', () => {
   const d1 = parseDate('13 Aug 2026');
@@ -32,7 +40,7 @@ test('parseBlogIndex extracts featured and standard article cards', () => {
         <div class="featured-article-content">
           <p class="featured-label">Featured</p>
           <a href="/blog/featured-item" class="featured-title-link">
-            <h2 class="featured-title">Featured Antigravity Post</h2>
+            <h2 class="featured-title">Featured Antigravity Post | Google Antigravity Blog</h2>
           </a>
           <div class="tags-section">
             <span class="caption">13 Aug 2026</span>
@@ -78,7 +86,7 @@ test('parsePostContent extracts body, author, and description with absolute URLs
     <!DOCTYPE html>
     <html>
       <head>
-        <meta property="og:title" content="Google Antigravity Blog: Custom Agents Deep Dive">
+        <meta property="og:title" content="Custom Agents Deep Dive | Google Antigravity Blog">
         <meta property="og:description" content="A comprehensive look into custom agents.">
         <meta property="og:image" content="/assets/image/hero.png">
       </head>
@@ -103,7 +111,7 @@ test('parsePostContent extracts body, author, and description with absolute URLs
   assert.ok(details.contentHtml.includes('https://antigravity.google/assets/image/diagram.png'));
 });
 
-test('buildFeed generates valid RSS 2.0 XML', () => {
+test('buildFeed and createFeedInstance generate valid RSS, Atom, and JSON feeds', () => {
   const mockPosts = [
     {
       title: 'Test Post 1',
@@ -118,11 +126,27 @@ test('buildFeed generates valid RSS 2.0 XML', () => {
     },
   ];
 
-  const rss = buildFeed(mockPosts, { feedBaseUrl: 'https://storage.googleapis.com/test-bucket' });
+  const feed = createFeedInstance(mockPosts, { feedBaseUrl: 'https://storage.googleapis.com/test-bucket' });
+  const rss = feed.rss2();
+  const atom = feed.atom1();
+  const jsonFeed = feed.json1();
 
   assert.ok(rss.includes('<rss version="2.0"'));
   assert.ok(rss.includes('<title>Google Antigravity Blog</title>'));
   assert.ok(rss.includes('<title><![CDATA[Test Post 1]]></title>'));
   assert.ok(rss.includes('https://antigravity.google/blog/test-post-1'));
   assert.ok(rss.includes('<description><![CDATA[Summary of test post 1]]></description>'));
+
+  assert.ok(atom.includes('<feed xmlns="http://www.w3.org/2005/Atom"'));
+  assert.ok(atom.includes('<title>Google Antigravity Blog</title>'));
+  assert.ok(atom.includes('https://antigravity.google/blog/test-post-1'));
+
+  const parsedJson = JSON.parse(jsonFeed);
+  assert.equal(parsedJson.title, 'Google Antigravity Blog');
+  assert.equal(parsedJson.items.length, 1);
+  assert.equal(parsedJson.items[0].title, 'Test Post 1');
+
+  // Also verify legacy buildFeed helper
+  const rssLegacy = buildFeed(mockPosts, { feedBaseUrl: 'https://storage.googleapis.com/test-bucket' });
+  assert.equal(rssLegacy, rss);
 });

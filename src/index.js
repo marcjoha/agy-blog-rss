@@ -1,13 +1,13 @@
 import http from 'node:http';
 import { config } from './config.js';
 import { fetchBlogPosts } from './scraper.js';
-import { buildFeed } from './feed-builder.js';
-import { uploadFeed } from './gcs-uploader.js';
+import { createFeedInstance } from './feed-builder.js';
+import { uploadFeeds } from './gcs-uploader.js';
 
-let cachedRss = null;
+let cachedFeeds = null;
 let cachedPostCount = 0;
 let lastScrapedAt = 0;
-const CACHE_TTL_MS = 15 * 60 * 1000;
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 
 /**
  * Runs the scrape → build → upload pipeline.
@@ -15,23 +15,28 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
  */
 async function runPipeline(options = {}) {
   const now = Date.now();
-  if (!options.force && cachedRss && (now - lastScrapedAt < CACHE_TTL_MS)) {
-    return { rss: cachedRss, postCount: cachedPostCount, fromCache: true };
+  if (!options.force && cachedFeeds && (now - lastScrapedAt < CACHE_TTL_MS)) {
+    return { feeds: cachedFeeds, postCount: cachedPostCount, fromCache: true };
   }
 
   const posts = await fetchBlogPosts({ fetchFullContent: true, maxPosts: 50 });
-  const rss = buildFeed(posts, { feedBaseUrl: config.feedBaseUrl });
+  const feed = createFeedInstance(posts, { feedBaseUrl: config.feedBaseUrl });
+  const feeds = {
+    rss: feed.rss2(),
+    atom: feed.atom1(),
+    json: feed.json1(),
+  };
 
-  cachedRss = rss;
+  cachedFeeds = feeds;
   cachedPostCount = posts.length;
   lastScrapedAt = now;
 
   let gcsUpload = null;
   if (config.gcsBucketName) {
-    gcsUpload = await uploadFeed(rss, config.gcsBucketName);
+    gcsUpload = await uploadFeeds(feeds, config.gcsBucketName);
   }
 
-  return { rss, postCount: posts.length, gcsUpload, fromCache: false };
+  return { feeds, postCount: posts.length, gcsUpload, fromCache: false };
 }
 
 function json(res, statusCode, body) {
@@ -62,7 +67,25 @@ const server = http.createServer(async (req, res) => {
         'Content-Type': 'application/rss+xml; charset=utf-8',
         'Cache-Control': 'public, max-age=7200, s-maxage=7200',
       });
-      return res.end(result.rss);
+      return res.end(result.feeds.rss);
+    }
+
+    if (pathname === '/atom.xml') {
+      const result = await runPipeline();
+      res.writeHead(200, {
+        'Content-Type': 'application/atom+xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=7200, s-maxage=7200',
+      });
+      return res.end(result.feeds.atom);
+    }
+
+    if (pathname === '/feed.json') {
+      const result = await runPipeline();
+      res.writeHead(200, {
+        'Content-Type': 'application/feed+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=7200, s-maxage=7200',
+      });
+      return res.end(result.feeds.json);
     }
 
     if (pathname === '/') {
@@ -72,6 +95,8 @@ const server = http.createServer(async (req, res) => {
         '',
         'Endpoints:',
         '  GET  /rss.xml   RSS 2.0 feed',
+        '  GET  /atom.xml  Atom 1.0 feed',
+        '  GET  /feed.json JSON Feed 1.0',
         '  POST /scrape    Trigger scrape & GCS upload',
         '  GET  /healthz   Health check',
         '',

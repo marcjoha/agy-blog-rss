@@ -52,13 +52,26 @@ function extractCaptions($el, $) {
 }
 
 /**
+ * Strips known blog prefixes and suffixes from article titles.
+ * @param {string} title
+ * @returns {string}
+ */
+export function cleanTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/^Google Antigravity Blog:\s*/i, '')
+    .replace(/\s*\|\s*Google Antigravity Blog\s*$/i, '')
+    .trim();
+}
+
+/**
  * Builds a normalized post metadata object.
  * @param {{url: string, title: string, dateStr: string, category: string, mediaSrc: string}} fields
  * @returns {{title: string, url: string, slug: string, date: Date, category: string, media: string}}
  */
 function buildPost({ url, title, dateStr, category, mediaSrc }) {
   return {
-    title,
+    title: cleanTitle(title),
     url,
     slug: url.replace(`${BASE_URL}/blog/`, ''),
     date: parseDate(dateStr),
@@ -160,7 +173,7 @@ export function parsePostContent(html) {
   }
 
   return {
-    title: ogTitle.replace(/^Google Antigravity Blog:\s*/i, '').trim(),
+    title: cleanTitle(ogTitle),
     summary,
     contentHtml,
     author,
@@ -195,11 +208,12 @@ export async function fetchBlogPosts(options = {}) {
         continue;
       }
       const details = parsePostContent(await res.text());
+      const cleanedTitle = cleanTitle(details.title || post.title);
       detailed.push({
         ...post,
-        title: details.title || post.title,
-        summary: details.summary || post.title,
-        contentHtml: details.contentHtml || `<p>${details.summary || post.title}</p>`,
+        title: cleanedTitle,
+        summary: details.summary || cleanedTitle,
+        contentHtml: details.contentHtml || `<p>${details.summary || cleanedTitle}</p>`,
         author: details.author,
         image: details.image || post.media,
       });

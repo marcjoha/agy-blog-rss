@@ -53,7 +53,7 @@ gcloud beta run deploy "${SERVICE_NAME}" \
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo "Service deployed at: ${SERVICE_URL}"
 
-# 5. Create or update Cloud Scheduler trigger (15 */4 * * *)
+# 5. Create or update Cloud Scheduler trigger (15 */2 * * *)
 echo "Setting up Cloud Scheduler job ${JOB_NAME} (${SCHEDULE}) in ${SCHEDULER_REGION}..."
 if gcloud scheduler jobs describe "${JOB_NAME}" --location="${SCHEDULER_REGION}" &>/dev/null; then
   gcloud scheduler jobs update http "${JOB_NAME}" \
@@ -75,5 +75,7 @@ curl -s -X POST "${SERVICE_URL}/scrape"
 echo ""
 
 echo "=== Deployment Complete ==="
-echo "Public Feed URL:"
-echo "- RSS 2.0: https://storage.googleapis.com/${BUCKET_NAME}/rss.xml"
+echo "Public Feed URLs:"
+echo "- RSS 2.0:  https://storage.googleapis.com/${BUCKET_NAME}/rss.xml"
+echo "- Atom 1.0: https://storage.googleapis.com/${BUCKET_NAME}/atom.xml"
+echo "- JSON:     https://storage.googleapis.com/${BUCKET_NAME}/feed.json"

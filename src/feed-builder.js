@@ -1,12 +1,13 @@
 import { Feed } from 'feed';
+import { cleanTitle } from './scraper.js';
 
 /**
- * Builds an RSS 2.0 feed XML string from a list of scraped posts.
+ * Creates a Feed instance populated with posts.
  * @param {Array<object>} posts
  * @param {{feedBaseUrl?: string}} options
- * @returns {string} RSS 2.0 XML
+ * @returns {Feed}
  */
-export function buildFeed(posts, options = {}) {
+export function createFeedInstance(posts, options = {}) {
   const feedBaseUrl = options.feedBaseUrl || 'https://antigravity.google/blog';
   const latestDate = posts.length > 0 && posts[0].date ? posts[0].date : new Date();
 
@@ -23,6 +24,8 @@ export function buildFeed(posts, options = {}) {
     generator: 'agy-blog-rss',
     feedLinks: {
       rss2: `${feedBaseUrl}/rss.xml`,
+      atom: `${feedBaseUrl}/atom.xml`,
+      json: `${feedBaseUrl}/feed.json`,
     },
     author: {
       name: 'Google Antigravity Team',
@@ -31,12 +34,13 @@ export function buildFeed(posts, options = {}) {
   });
 
   for (const post of posts) {
+    const title = cleanTitle(post.title);
     feed.addItem({
-      title: post.title,
+      title,
       id: post.url,
       link: post.url,
-      description: post.summary || post.title,
-      content: post.contentHtml || `<p>${post.summary || post.title}</p>`,
+      description: post.summary || title,
+      content: post.contentHtml || `<p>${post.summary || title}</p>`,
       author: [{ name: post.author || 'Google Antigravity Team', link: 'https://antigravity.google' }],
       date: post.date instanceof Date && !isNaN(post.date.getTime()) ? post.date : new Date(),
       image: post.image || undefined,
@@ -44,5 +48,15 @@ export function buildFeed(posts, options = {}) {
     });
   }
 
-  return feed.rss2();
+  return feed;
+}
+
+/**
+ * Builds an RSS 2.0 feed XML string from a list of scraped posts.
+ * @param {Array<object>} posts
+ * @param {{feedBaseUrl?: string}} options
+ * @returns {string} RSS 2.0 XML
+ */
+export function buildFeed(posts, options = {}) {
+  return createFeedInstance(posts, options).rss2();
 }
